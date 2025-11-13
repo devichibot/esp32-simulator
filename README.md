@@ -1,50 +1,46 @@
-# Simulasi ESP32 MQTT
+# ESP32 MQTT Simulator
 
-Program Python untuk simulasi ESP32 yang terhubung ke MQTT broker dan mengirim data random setiap 2 detik.
+A Python program to simulate ESP32 connecting to MQTT broker and sending random data every 2 seconds.
 
-## Instalasi
+## Installation
 
-1. Install library yang dibutuhkan:
+1. Install required libraries:
 ```bash
 pip install -r requirements.txt
 ```
 
-2. Setup file konfigurasi:
+2. Setup configuration file:
 ```bash
-# Copy file .env.example menjadi .env
+# Copy .env.example to .env
 cp .env.example .env
 ```
 
-3. Edit file `.env` dan isi dengan konfigurasi MQTT Anda:
+3. Edit `.env` file and fill with your MQTT configuration:
 ```
-MQTT_BROKER=mqtt.ichibot.id
+MQTT_BROKER=your_broker_address
 MQTT_PORT=1883
 MQTT_TOPIC=your_topic_here
 ```
 
-## Cara Menjalankan
+## How to Run
 
 ```bash
 python esp32_mqtt_simulator.py
 ```
 
-## Konfigurasi
+## Configuration
 
-Semua konfigurasi disimpan di file `.env` (tidak akan di-push ke GitHub):
-- `MQTT_BROKER`: alamat broker MQTT
-- `MQTT_PORT`: port broker MQTT
-- `MQTT_TOPIC`: topic untuk publish data
+All configurations are stored in `.env` file (will not be pushed to GitHub):
+- `MQTT_BROKER`: MQTT broker address
+- `MQTT_PORT`: MQTT broker port
+- `MQTT_TOPIC`: Topic for publishing data
 
-## Fitur
+## Features
 
-- Mengirim data celsius (0-100°C) setiap 2 detik
-- Menampilkan data di terminal
-- Konfigurasi aman dengan .env file
+- Sends celsius data (0-100°C) every 2 seconds
+- Displays data in terminal
+- Secure configuration with .env file
 
 ## Stop Program
 
-Tekan `Ctrl+C` untuk menghentikan program.
-
-## Push ke GitHub
-
-File `.env` sudah ditambahkan ke `.gitignore`, sehingga konfigurasi sensitif Anda tidak akan terpush ke GitHub. Yang akan di-push hanya `.env.example` sebagai template.
+Press `Ctrl+C` to stop the program.
