@@ -546,10 +546,10 @@
         <div class="config-box">
             <div class="input-group">
                 <label for="topicInput">📢 MQTT Topic</label>
-                <input type="text" id="topicInput" placeholder="default/topic" value="default/topic">
+                <input type="text" id="topicInput" placeholder="j1mmf/main" value="j1mmf/main">
             </div>
             <div style="font-size: 12px; color: #666; margin-bottom: 10px; text-align: left;" id="brokerInfo">
-                🌐 Broker: <strong>mqtt.ichibot.id</strong> (Detecting...)
+                🌐 Broker: <strong>mqtt.ichibot.id</strong>
             </div>
             <button class="connect-btn" id="connectBtn" onclick="connectToMQTT()">Connect to MQTT</button>
         </div>
@@ -561,11 +561,8 @@
 
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
     <script>
-        // MQTT Configuration - Auto-detect protocol based on page protocol
+        // MQTT Configuration
         const MQTT_BROKER = 'mqtt.ichibot.id';
-        const isSecure = window.location.protocol === 'https:';
-        const MQTT_PROTOCOL = isSecure ? 'wss://' : 'ws://';
-        const MQTT_PORT = isSecure ? 443 : 80;
         
         // Elements
         const lampBulb = document.getElementById('lampBulb');
@@ -587,6 +584,59 @@
         let client = null;
         let isLampOn = false;
         let currentBrightness = 50;
+        let runtimeInterval = null;
+
+        // Runtime simulation - update electrical values with slight variations
+        function startRuntimeSimulation() {
+            if (runtimeInterval) {
+                clearInterval(runtimeInterval);
+            }
+            
+            runtimeInterval = setInterval(() => {
+                if (isLampOn) {
+                    // Add slight random variations to simulate real electrical fluctuations
+                    const baseVoltage = (currentBrightness / 100) * 220;
+                    const baseCurrent = (currentBrightness / 100) * 10;
+                    
+                    // Random fluctuation ±2%
+                    const voltageVariation = (Math.random() - 0.5) * 0.04;
+                    const currentVariation = (Math.random() - 0.5) * 0.04;
+                    
+                    const voltage = baseVoltage * (1 + voltageVariation);
+                    const current = baseCurrent * (1 + currentVariation);
+                    const power = (voltage * current) / 1000;
+                    
+                    // Update display
+                    voltageValue.textContent = voltage.toFixed(2);
+                    currentValue.textContent = current.toFixed(2);
+                    powerValue.textContent = power.toFixed(2);
+                    
+                    // Update last update time
+                    const now = new Date();
+                    lastUpdateEl.textContent = now.toLocaleTimeString();
+                    
+                    // Publish to MQTT
+                    if (client && client.connected) {
+                        const topic = topicInput.value.trim();
+                        const state = {
+                            power: 'on',
+                            voltage: voltage.toFixed(2),
+                            current: current.toFixed(2),
+                            watt: power.toFixed(2),
+                            brightness: currentBrightness
+                        };
+                        client.publish(topic, JSON.stringify(state));
+                    }
+                }
+            }, 1000); // Update every 1 second
+        }
+        
+        function stopRuntimeSimulation() {
+            if (runtimeInterval) {
+                clearInterval(runtimeInterval);
+                runtimeInterval = null;
+            }
+        }
 
         // Toggle lamp on/off
         function toggleLamp() {
@@ -596,12 +646,16 @@
                 updateLamp(currentBrightness);
                 // Calculate and show electrical values when turning on
                 updateBrightness();
+                // Start runtime simulation
+                startRuntimeSimulation();
             } else {
                 updateLamp(0);
                 // Reset electrical values when turning off
                 voltageValue.textContent = '0';
                 currentValue.textContent = '0';
                 powerValue.textContent = '0';
+                // Stop runtime simulation
+                stopRuntimeSimulation();
             }
             publishLampState();
         }
@@ -625,6 +679,11 @@
                 
                 updateLamp(currentBrightness);
                 publishLampState();
+                
+                // Restart runtime simulation with new brightness
+                if (runtimeInterval) {
+                    startRuntimeSimulation();
+                }
             } else {
                 // When OFF, all electrical values should be 0
                 voltageValue.textContent = '0.00';
@@ -669,8 +728,8 @@
             connectBtn.textContent = 'Connecting...';
 
             try {
-                // Connect to MQTT broker via WebSocket (port 80 on mqtt.ichibot.id)
-                const wsUrl = `${MQTT_PROTOCOL}${MQTT_BROKER}:${MQTT_PORT}`;
+                // Connect to MQTT broker via WebSocket
+                const wsUrl = `ws://${MQTT_BROKER}`;
                 console.log(`Connecting to: ${wsUrl}`);
                 
                 client = mqtt.connect(wsUrl, {
