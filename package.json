@@ -1,0 +1,21 @@
+{
+  "name": "mqtt-websocket-bridge",
+  "version": "1.0.0",
+  "description": "WebSocket bridge for MQTT broker to enable browser connections",
+  "main": "mqtt-websocket-bridge.js",
+  "scripts": {
+    "start": "node mqtt-websocket-bridge.js",
+    "dev": "nodemon mqtt-websocket-bridge.js"
+  },
+  "keywords": ["mqtt", "websocket", "bridge", "esp32"],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "mqtt": "^5.3.5",
+    "ws": "^8.16.0",
+    "dotenv": "^16.4.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.3"
+  }
+}
