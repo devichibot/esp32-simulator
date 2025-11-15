@@ -5,6 +5,8 @@ import json
 import os
 from datetime import datetime
 from dotenv import load_dotenv
+import pytz
+from tzlocal import get_localzone
 
 # Load environment variables
 load_dotenv()
@@ -39,6 +41,11 @@ def main():
     print("ESP32 MQTT Simulator")
     print("=" * 50)
     
+    # Get local timezone
+    local_tz = get_localzone()
+    print(f"Timezone: {local_tz}")
+    print("-" * 50)
+    
     # Initialize MQTT Client with callback API version
     client = mqtt.Client(client_id=CLIENT_ID, callback_api_version=mqtt.CallbackAPIVersion.VERSION2)
     client.on_connect = on_connect
@@ -60,17 +67,34 @@ def main():
         print("Press Ctrl+C to stop\n")
         
         counter = 0
+        lamp_state = True  # Start with lamp ON
+        
         while True:
             counter += 1
             
-            # Generate random celsius data
-            celsius = round(random.uniform(0.0, 100.0), 2)
+            # Get current time in local timezone
+            current_time = datetime.now(local_tz)
             
-            # Send only numeric value
-            payload = str(celsius)
+            # Randomly toggle lamp state every 10 iterations
+            if counter % 10 == 0:
+                lamp_state = not lamp_state
             
-            # Display in terminal
-            print(f"[{datetime.now().strftime('%H:%M:%S')}] Celsius: {celsius}°C")
+            # Generate random electrical data
+            voltage = round(random.uniform(0, 220), 2)  # Voltage 0-220V
+            current_amp = round(random.uniform(0, 10), 2)  # Current 0-10A
+            power_watt = round(voltage * current_amp / 1000, 2)  # Power in kW
+            
+            # Create JSON payload
+            payload = json.dumps({
+                "power": "on" if lamp_state else "off",
+                "voltage": voltage,
+                "current": current_amp,
+                "watt": power_watt
+            })
+            
+            # Display in terminal with local time
+            status = "ON" if lamp_state else "OFF"
+            print(f"[{current_time.strftime('%H:%M:%S')}] Lamp: {status} | Voltage: {voltage}V | Current: {current_amp}A | Power: {power_watt}kW")
             
             # Publish to MQTT
             result = client.publish(MQTT_TOPIC, payload)
