@@ -1,2 +1,4 @@
 paho-mqtt==2.1.0
 python-dotenv==1.2.1
+pytz==2025.2
+tzlocal==5.3.1
