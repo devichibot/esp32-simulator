@@ -548,8 +548,8 @@
                 <label for="topicInput">📢 MQTT Topic</label>
                 <input type="text" id="topicInput" placeholder="default/topic" value="default/topic">
             </div>
-            <div style="font-size: 12px; color: #666; margin-bottom: 10px; text-align: left;">
-                🌐 Broker: <strong>mqtt.ichibot.id</strong> (WebSocket)
+            <div style="font-size: 12px; color: #666; margin-bottom: 10px; text-align: left;" id="brokerInfo">
+                🌐 Broker: <strong>mqtt.ichibot.id</strong> (Detecting...)
             </div>
             <button class="connect-btn" id="connectBtn" onclick="connectToMQTT()">Connect to MQTT</button>
         </div>
@@ -561,10 +561,11 @@
 
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
     <script>
-        // MQTT Configuration - Connect directly to mqtt.ichibot.id via WebSocket
+        // MQTT Configuration - Auto-detect protocol based on page protocol
         const MQTT_BROKER = 'mqtt.ichibot.id';
-        const MQTT_PORT = 80; // WebSocket port on your VPS
-        const MQTT_PROTOCOL = 'ws://'; // WebSocket protocol
+        const isSecure = window.location.protocol === 'https:';
+        const MQTT_PROTOCOL = isSecure ? 'wss://' : 'ws://';
+        const MQTT_PORT = isSecure ? 443 : 80;
         
         // Elements
         const lampBulb = document.getElementById('lampBulb');
@@ -813,6 +814,13 @@
             voltageValue.textContent = '0.00';
             currentValue.textContent = '0.00';
             powerValue.textContent = '0.00';
+            
+            // Update broker info display
+            const brokerInfoEl = document.getElementById('brokerInfo');
+            if (brokerInfoEl) {
+                const protocol = isSecure ? 'WSS (Secure)' : 'WS';
+                brokerInfoEl.innerHTML = `🌐 Broker: <strong>${MQTT_BROKER}:${MQTT_PORT}</strong> (${protocol})`;
+            }
         });
     </script>
 </body>
