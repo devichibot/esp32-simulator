@@ -1,0 +1,5 @@
+{
+  "rewrites": [
+    { "source": "/", "destination": "/mqtt_lamp_simulator.html" }
+  ]
+}
