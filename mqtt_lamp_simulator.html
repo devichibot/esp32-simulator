@@ -1,0 +1,819 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ESP32 MQTT Lamp Controller</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 500px;
+            width: 100%;
+            text-align: center;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+
+        .lamp-container {
+            position: relative;
+            margin: 40px auto;
+            width: 200px;
+            height: 250px;
+        }
+
+        .lamp-glow {
+            position: absolute;
+            top: -50px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 250px;
+            height: 250px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(255, 200, 0, 0.8) 0%, transparent 70%);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            filter: blur(30px);
+        }
+
+        .lamp-bulb {
+            position: relative;
+            width: 120px;
+            height: 120px;
+            background: linear-gradient(135deg, #f0f0f0 0%, #e0e0e0 100%);
+            border-radius: 50%;
+            margin: 0 auto;
+            box-shadow: 
+                inset 0 -10px 20px rgba(0, 0, 0, 0.1),
+                0 10px 30px rgba(0, 0, 0, 0.2);
+            transition: all 0.3s ease;
+            z-index: 2;
+        }
+
+        .lamp-bulb.on {
+            background: linear-gradient(135deg, #fff9e6 0%, #ffd700 100%);
+            box-shadow: 
+                inset 0 -10px 20px rgba(255, 215, 0, 0.3),
+                0 0 40px rgba(255, 215, 0, 0.6),
+                0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        .lamp-base {
+            width: 60px;
+            height: 40px;
+            background: linear-gradient(180deg, #999 0%, #666 100%);
+            margin: 10px auto 0;
+            border-radius: 5px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        }
+
+        .lamp-socket {
+            width: 50px;
+            height: 30px;
+            background: #888;
+            margin: 0 auto;
+            border-radius: 0 0 5px 5px;
+            position: relative;
+        }
+
+        .lamp-socket::before,
+        .lamp-socket::after {
+            content: '';
+            position: absolute;
+            width: 100%;
+            height: 3px;
+            background: #555;
+            left: 0;
+        }
+
+        .lamp-socket::before {
+            top: 8px;
+        }
+
+        .lamp-socket::after {
+            top: 16px;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin: 30px 0;
+        }
+
+        .stat-box {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            border: 2px solid #e9ecef;
+        }
+
+        .stat-label {
+            color: #666;
+            font-size: 12px;
+            text-transform: uppercase;
+            margin-bottom: 5px;
+            font-weight: 600;
+        }
+
+        .stat-value {
+            color: #333;
+            font-size: 28px;
+            font-weight: bold;
+        }
+
+        .stat-unit {
+            font-size: 16px;
+            color: #999;
+        }
+
+        .connection-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 20px;
+        }
+
+        .connection-status.connected {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .connection-status.disconnected {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        .status-dot.connected {
+            background: #28a745;
+        }
+
+        .status-dot.disconnected {
+            background: #dc3545;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .info-box {
+            background: #e7f3ff;
+            border-left: 4px solid #2196F3;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 20px;
+            text-align: left;
+            font-size: 13px;
+            color: #333;
+        }
+
+        .info-box strong {
+            color: #1976D2;
+        }
+
+        .last-update {
+            color: #999;
+            font-size: 12px;
+            margin-top: 15px;
+        }
+
+        .intensity-bar {
+            width: 100%;
+            height: 8px;
+            background: #e0e0e0;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-top: 10px;
+        }
+
+        .intensity-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #ffd700 0%, #ff6b6b 100%);
+            width: 0%;
+            transition: width 0.3s ease;
+            border-radius: 10px;
+        }
+
+        .config-box {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 20px;
+            text-align: left;
+        }
+
+        .input-group {
+            margin-bottom: 15px;
+        }
+
+        .input-group label {
+            display: block;
+            color: #666;
+            font-size: 12px;
+            font-weight: 600;
+            margin-bottom: 5px;
+            text-transform: uppercase;
+        }
+
+        .input-group input {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #e0e0e0;
+            border-radius: 5px;
+            font-size: 14px;
+            transition: border-color 0.3s ease;
+        }
+
+        .input-group input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .connect-btn {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            margin-top: 10px;
+        }
+
+        .connect-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .connect-btn:active {
+            transform: translateY(0);
+        }
+
+        .connect-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        /* Switch Toggle */
+        .control-section {
+            margin: 30px 0;
+        }
+
+        .switch-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .switch-label {
+            font-size: 18px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 60px;
+            height: 34px;
+        }
+
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 34px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 26px;
+            width: 26px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        input:checked + .slider {
+            background-color: #4CAF50;
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(26px);
+        }
+
+        /* Brightness Slider */
+        .brightness-container {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 20px;
+        }
+
+        .brightness-label {
+            display: block;
+            color: #666;
+            font-size: 12px;
+            font-weight: 600;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+        }
+
+        .brightness-slider {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 8px;
+            border-radius: 5px;
+            background: linear-gradient(to right, #333 0%, #ffd700 100%);
+            outline: none;
+            opacity: 0.7;
+            transition: opacity .2s;
+        }
+
+        .brightness-slider:hover {
+            opacity: 1;
+        }
+
+        .brightness-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 25px;
+            height: 25px;
+            border-radius: 50%;
+            background: #667eea;
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+        }
+
+        .brightness-slider::-moz-range-thumb {
+            width: 25px;
+            height: 25px;
+            border-radius: 50%;
+            background: #667eea;
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+        }
+
+        .brightness-value {
+            text-align: center;
+            font-size: 24px;
+            font-weight: bold;
+            color: #333;
+            margin-top: 10px;
+        }
+
+        .brightness-marks {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            color: #999;
+            margin-top: 5px;
+        }
+
+        /* Electrical Stats */
+        .electrical-stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 10px;
+            margin: 20px 0;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            padding: 15px;
+            border-radius: 10px;
+            border: 2px solid #dee2e6;
+        }
+
+        .stat-icon {
+            font-size: 24px;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            color: #666;
+            font-size: 11px;
+            text-transform: uppercase;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+
+        .stat-value {
+            color: #333;
+            font-size: 20px;
+            font-weight: bold;
+        }
+
+        .stat-unit {
+            font-size: 14px;
+            color: #999;
+            font-weight: normal;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>💡 MQTT Lamp Controller</h1>
+        <p class="subtitle">ESP32 Power Monitor & Control</p>
+
+        <div class="connection-status disconnected" id="connectionStatus">
+            <div class="status-dot disconnected" id="statusDot"></div>
+            <span id="statusText">Disconnected</span>
+        </div>
+
+        <div class="lamp-container">
+            <div class="lamp-glow" id="lampGlow"></div>
+            <div class="lamp-bulb" id="lampBulb"></div>
+            <div class="lamp-socket"></div>
+            <div class="lamp-base"></div>
+        </div>
+
+        <!-- Electrical Stats -->
+        <div class="electrical-stats">
+            <div class="stat-card">
+                <div class="stat-icon">⚡</div>
+                <div class="stat-label">Voltage</div>
+                <div class="stat-value">
+                    <span id="voltageValue">0</span>
+                    <span class="stat-unit">V</span>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">🔋</div>
+                <div class="stat-label">Current</div>
+                <div class="stat-value">
+                    <span id="currentValue">0</span>
+                    <span class="stat-unit">A</span>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">🔌</div>
+                <div class="stat-label">Power</div>
+                <div class="stat-value">
+                    <span id="powerValue">0</span>
+                    <span class="stat-unit">kW</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="control-section">
+            <!-- Switch ON/OFF -->
+            <div class="switch-container">
+                <span class="switch-label">OFF</span>
+                <label class="switch">
+                    <input type="checkbox" id="powerSwitch" onchange="toggleLamp()">
+                    <span class="slider"></span>
+                </label>
+                <span class="switch-label">ON</span>
+            </div>
+
+            <!-- Brightness Slider -->
+            <div class="brightness-container">
+                <label class="brightness-label">🔆 Brightness</label>
+                <input type="range" min="0" max="100" value="50" class="brightness-slider" id="brightnessSlider" oninput="updateBrightness()">
+                <div class="brightness-marks">
+                    <span>0%</span>
+                    <span>25%</span>
+                    <span>50%</span>
+                    <span>75%</span>
+                    <span>100%</span>
+                </div>
+                <div class="brightness-value">
+                    <span id="brightnessValue">50</span>%
+                </div>
+            </div>
+        </div>
+
+        <div class="config-box">
+            <div class="input-group">
+                <label for="topicInput">📢 MQTT Topic</label>
+                <input type="text" id="topicInput" placeholder="default/topic" value="default/topic">
+            </div>
+            <div style="font-size: 12px; color: #666; margin-bottom: 10px; text-align: left;">
+                🌐 Broker: <strong>mqtt.ichibot.id</strong> (WebSocket)
+            </div>
+            <button class="connect-btn" id="connectBtn" onclick="connectToMQTT()">Connect to MQTT</button>
+        </div>
+
+        <div class="last-update">
+            Last update: <span id="lastUpdate">Never</span>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+    <script>
+        // MQTT Configuration - Connect directly to mqtt.ichibot.id via WebSocket
+        const MQTT_BROKER = 'mqtt.ichibot.id';
+        const MQTT_PORT = 80; // WebSocket port on your VPS
+        const MQTT_PROTOCOL = 'ws://'; // WebSocket protocol
+        
+        // Elements
+        const lampBulb = document.getElementById('lampBulb');
+        const lampGlow = document.getElementById('lampGlow');
+        const connectionStatus = document.getElementById('connectionStatus');
+        const statusDot = document.getElementById('statusDot');
+        const statusText = document.getElementById('statusText');
+        const lastUpdateEl = document.getElementById('lastUpdate');
+        const topicInput = document.getElementById('topicInput');
+        const connectBtn = document.getElementById('connectBtn');
+        const powerSwitch = document.getElementById('powerSwitch');
+        const brightnessSlider = document.getElementById('brightnessSlider');
+        const brightnessValue = document.getElementById('brightnessValue');
+        const voltageValue = document.getElementById('voltageValue');
+        const currentValue = document.getElementById('currentValue');
+        const powerValue = document.getElementById('powerValue');
+
+        // MQTT client state
+        let client = null;
+        let isLampOn = false;
+        let currentBrightness = 50;
+
+        // Toggle lamp on/off
+        function toggleLamp() {
+            isLampOn = powerSwitch.checked;
+            
+            if (isLampOn) {
+                updateLamp(currentBrightness);
+                // Calculate and show electrical values when turning on
+                updateBrightness();
+            } else {
+                updateLamp(0);
+                // Reset electrical values when turning off
+                voltageValue.textContent = '0';
+                currentValue.textContent = '0';
+                powerValue.textContent = '0';
+            }
+            publishLampState();
+        }
+
+        // Update brightness
+        function updateBrightness() {
+            currentBrightness = parseInt(brightnessSlider.value);
+            brightnessValue.textContent = currentBrightness;
+            
+            // Only calculate and show electrical values when lamp is ON
+            if (isLampOn) {
+                // Calculate electrical values from brightness
+                const voltage = (currentBrightness / 100) * 220; // 0-220V
+                const current = (currentBrightness / 100) * 10;  // 0-10A
+                const power = (voltage * current) / 1000;        // kW
+                
+                // Update display
+                voltageValue.textContent = voltage.toFixed(2);
+                currentValue.textContent = current.toFixed(2);
+                powerValue.textContent = power.toFixed(2);
+                
+                updateLamp(currentBrightness);
+                publishLampState();
+            } else {
+                // When OFF, all electrical values should be 0
+                voltageValue.textContent = '0.00';
+                currentValue.textContent = '0.00';
+                powerValue.textContent = '0.00';
+                updateLamp(0);
+            }
+        }
+
+        // Publish lamp state to MQTT
+        function publishLampState() {
+            if (client && client.connected) {
+                const topic = topicInput.value.trim();
+                const state = {
+                    power: isLampOn ? 'on' : 'off',
+                    brightness: currentBrightness
+                };
+                
+                client.publish(topic, JSON.stringify(state));
+                
+                const now = new Date();
+                lastUpdateEl.textContent = now.toLocaleTimeString();
+                console.log('Published:', state);
+            }
+        }
+
+        // Function to connect to MQTT broker via WebSocket
+        function connectToMQTT() {
+            const topic = topicInput.value.trim();
+
+            if (!topic) {
+                alert('Please enter a topic');
+                return;
+            }
+
+            // Disconnect existing connection if any
+            if (client) {
+                client.end();
+            }
+
+            connectBtn.disabled = true;
+            connectBtn.textContent = 'Connecting...';
+
+            try {
+                // Connect to MQTT broker via WebSocket (port 80 on mqtt.ichibot.id)
+                const wsUrl = `${MQTT_PROTOCOL}${MQTT_BROKER}:${MQTT_PORT}`;
+                console.log(`Connecting to: ${wsUrl}`);
+                
+                client = mqtt.connect(wsUrl, {
+                    clientId: `web_lamp_${Math.random().toString(16).substr(2, 8)}`,
+                    clean: true,
+                    reconnectPeriod: 5000,
+                    connectTimeout: 10000,
+                });
+
+                // Connection callback
+                client.on('connect', () => {
+                    console.log('✓ Connected to MQTT broker');
+                    updateConnectionStatus(true);
+                    connectBtn.disabled = false;
+                    connectBtn.textContent = 'Connected ✓';
+                    
+                    // Subscribe to topic
+                    client.subscribe(topic, { qos: 0 }, (err) => {
+                        if (err) {
+                            console.error('Subscription error:', err);
+                        } else {
+                            console.log(`✓ Subscribed to ${topic}`);
+                        }
+                    });
+                });
+
+                // Message callback
+                client.on('message', (topic, message) => {
+                    handleMQTTMessage(message.toString());
+                });
+
+                // Error callback
+                client.on('error', (error) => {
+                    console.error('✗ MQTT Error:', error);
+                    updateConnectionStatus(false);
+                    connectBtn.disabled = false;
+                    connectBtn.textContent = 'Connect';
+                });
+
+                // Disconnect callback
+                client.on('close', () => {
+                    console.log('✗ Disconnected from MQTT broker');
+                    updateConnectionStatus(false);
+                    connectBtn.disabled = false;
+                    connectBtn.textContent = 'Connect';
+                });
+
+            } catch (error) {
+                console.error('✗ Connection error:', error);
+                alert('Failed to connect: ' + error.message);
+                connectBtn.disabled = false;
+                connectBtn.textContent = 'Connect';
+            }
+        }
+        
+        // Handle MQTT message
+        function handleMQTTMessage(payload) {
+            try {
+                const data = JSON.parse(payload);
+                
+                if (data.power !== undefined) {
+                    isLampOn = data.power === 'on';
+                    powerSwitch.checked = isLampOn;
+                }
+                
+                // Update electrical data
+                if (data.voltage !== undefined) {
+                    voltageValue.textContent = data.voltage;
+                }
+                
+                if (data.current !== undefined) {
+                    currentValue.textContent = data.current;
+                }
+                
+                if (data.watt !== undefined) {
+                    powerValue.textContent = data.watt;
+                }
+                
+                // Calculate brightness from voltage (0-220V = 0-100%)
+                if (data.voltage !== undefined) {
+                    currentBrightness = Math.round((data.voltage / 220) * 100);
+                    brightnessSlider.value = currentBrightness;
+                    brightnessValue.textContent = currentBrightness;
+                }
+                
+                // Update lamp display
+                if (isLampOn) {
+                    updateLamp(currentBrightness);
+                } else {
+                    updateLamp(0);
+                }
+                
+                // Update last update time
+                const now = new Date();
+                lastUpdateEl.textContent = now.toLocaleTimeString();
+                
+                console.log('Received:', data);
+            } catch (error) {
+                console.error('Error parsing MQTT message:', error);
+            }
+        }
+
+        // Update lamp appearance based on intensity
+        function updateLamp(intensity) {
+            const normalizedIntensity = intensity / 100;
+            
+            if (intensity > 0) {
+                lampBulb.classList.add('on');
+                lampGlow.style.opacity = normalizedIntensity * 0.8;
+                
+                // Adjust bulb brightness
+                const brightness = 100 + (normalizedIntensity * 50);
+                lampBulb.style.filter = `brightness(${brightness}%)`;
+            } else {
+                lampBulb.classList.remove('on');
+                lampGlow.style.opacity = 0;
+                lampBulb.style.filter = 'brightness(100%)';
+            }
+        }
+
+        // Update connection status display
+        function updateConnectionStatus(connected) {
+            if (connected) {
+                connectionStatus.classList.remove('disconnected');
+                connectionStatus.classList.add('connected');
+                statusDot.classList.remove('disconnected');
+                statusDot.classList.add('connected');
+                statusText.textContent = 'Connected';
+            } else {
+                connectionStatus.classList.remove('connected');
+                connectionStatus.classList.add('disconnected');
+                statusDot.classList.remove('connected');
+                statusDot.classList.add('disconnected');
+                statusText.textContent = 'Disconnected';
+            }
+        }
+        
+        // Initialize on page load
+        window.addEventListener('DOMContentLoaded', () => {
+            // Set initial electrical values to 0 (lamp is OFF by default)
+            voltageValue.textContent = '0.00';
+            currentValue.textContent = '0.00';
+            powerValue.textContent = '0.00';
+        });
+    </script>
+</body>
+</html>
